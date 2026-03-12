@@ -33,6 +33,10 @@ A face verification system built with a Siamese ResNet-50 backbone trained using
 
 ## Dataset
 
+> **⚠️ Dataset Not Included**  
+> The `triplets_dataset/` folder (34 GB) is **not included** in this repository due to size constraints.  
+> **To obtain the dataset:** Please email me with your request, and I'll provide access to the dataset files.
+
 | Property | Value |
 |---|---|
 | Total triplets | 10,104 |
