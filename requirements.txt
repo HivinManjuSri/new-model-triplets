@@ -1,0 +1,11 @@
+# Face Verification - Triplet Model
+# Python 3.12  |  GPU: NVIDIA MX350 (2 GB VRAM, CUDA driver 13.0)
+#
+# PyTorch built against CUDA 12.4 — compatible with CUDA 13.0 driver
+# via NVIDIA's backward-compatibility guarantee.
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch>=2.3.0
+torchvision>=0.18.0
+
+# Image handling
+Pillow>=10.0.0
