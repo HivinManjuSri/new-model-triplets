@@ -12,6 +12,8 @@ ENV/
 
 # Dataset (too large for GitHub - host separately)
 triplets_dataset/
+triplet_dataset/
+dataset/
 
 # IDE
 .vscode/

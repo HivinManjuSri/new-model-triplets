@@ -1,20 +1,22 @@
 """
 dataset.py
 ----------
-PyTorch Dataset that reads pre-built triplets from the dataset.
+PyTorch Dataset that reads pre-built triplets from CSV files.
 
-Each triplet folder contains:
-    A_XXXXX.ppm   Anchor  (identity XXXXX)
-    P_XXXXX.ppm   Positive (same identity, different photo)
-    N_YYYYY.ppm   Negative (different identity YYYYY)
+Each CSV row contains:
+    anchor_path, positive_path, negative_path
+
+Paths in the CSVs are absolute (from the generation machine) and are
+automatically mapped to the local ``dataset/{split}/{identity}/{img}.jpg``
+layout.
 
 Returns (anchor_tensor, positive_tensor, negative_tensor) ready for the
-model.  Images are converted from PPM → RGB PIL → resized to INPUT_SIZE →
+model.  Images are loaded as JPG → RGB PIL → resized to INPUT_SIZE →
 normalized to ImageNet stats.
 """
 
 import os
-import glob
+import csv
 from PIL import Image
 
 import torch
@@ -24,8 +26,9 @@ from torchvision import transforms
 
 # ── Constants ───────────────────────────────────────────────────────────────
 INPUT_SIZE   = 112
-DATASET_DIR  = os.path.join(os.path.dirname(__file__), "triplets_dataset")
-SPLITS_DIR   = os.path.join(os.path.dirname(__file__), "splits")
+BASE_DIR     = os.path.dirname(__file__)
+DATASET_DIR  = os.path.join(BASE_DIR, "dataset")
+TRIPLET_DIR  = os.path.join(BASE_DIR, "triplet_dataset")
 
 # ImageNet mean/std — used because ResNet backbone is pretrained on ImageNet
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
@@ -62,19 +65,22 @@ def _make_transform(augment: bool) -> transforms.Compose:
     return transforms.Compose(steps)
 
 
-def _find_images(folder: str):
-    """Return (anchor_path, positive_path, negative_path) inside a triplet folder."""
-    anchor   = glob.glob(os.path.join(folder, "A_*.ppm"))
-    positive = glob.glob(os.path.join(folder, "P_*.ppm"))
-    negative = glob.glob(os.path.join(folder, "N_*.ppm"))
+def _csv_path_to_local(csv_path: str) -> str:
+    """
+    Convert an absolute CSV path to a local dataset path.
 
-    if not (anchor and positive and negative):
-        raise FileNotFoundError(
-            f"Triplet folder {folder!r} is missing A/P/N images. "
-            f"Found: {os.listdir(folder)}"
-        )
-
-    return anchor[0], positive[0], negative[0]
+    CSV :  F:\\DATASET\\VGGFace2\\dataset\\train\\n000208\\0194_01.jpg
+    Local: dataset/train/n000208/0194_01.jpg
+    """
+    parts = csv_path.replace("\\", "/").split("/")
+    # Find the split token (train / val / test) and keep everything from there
+    for i, part in enumerate(parts):
+        if part in ("train", "val", "test"):
+            rel = "/".join(parts[i:])
+            return os.path.join(DATASET_DIR, rel)
+    # Fallback: last 3 components  (split / identity / filename)
+    rel = "/".join(parts[-3:])
+    return os.path.join(DATASET_DIR, rel)
 
 
 class TripletFaceDataset(Dataset):
@@ -93,25 +99,34 @@ class TripletFaceDataset(Dataset):
         if augment is None:
             augment = (split == "train")
 
-        split_file = os.path.join(SPLITS_DIR, f"{split}.txt")
-        if not os.path.exists(split_file):
+        csv_file = os.path.join(TRIPLET_DIR, f"{split}_triplets.csv")
+        if not os.path.exists(csv_file):
             raise FileNotFoundError(
-                f"{split_file} not found. Run split_dataset.py first."
+                f"{csv_file} not found. Place the triplet CSVs in "
+                f"triplet_dataset/ first."
             )
 
-        with open(split_file) as f:
-            self.triplet_names = [line.strip() for line in f if line.strip()]
+        self.triplets = []
+        with open(csv_file, newline="") as f:
+            reader = csv.reader(f)
+            next(reader)  # skip header row
+            for row in reader:
+                if len(row) < 3:
+                    continue
+                a_path = _csv_path_to_local(row[0])
+                p_path = _csv_path_to_local(row[1])
+                n_path = _csv_path_to_local(row[2])
+                self.triplets.append((a_path, p_path, n_path))
 
         self.transform = _make_transform(augment)
         self.split = split
-        print(f"[TripletFaceDataset] {split}: {len(self.triplet_names)} triplets loaded.")
+        print(f"[TripletFaceDataset] {split}: {len(self.triplets)} triplets loaded.")
 
     def __len__(self):
-        return len(self.triplet_names)
+        return len(self.triplets)
 
     def __getitem__(self, idx: int):
-        folder = os.path.join(DATASET_DIR, self.triplet_names[idx])
-        a_path, p_path, n_path = _find_images(folder)
+        a_path, p_path, n_path = self.triplets[idx]
 
         anchor   = self.transform(Image.open(a_path).convert("RGB"))
         positive = self.transform(Image.open(p_path).convert("RGB"))

@@ -123,6 +123,7 @@ def parse_args():
     p.add_argument("--batch_size",  type=int,   default=bs,   help=f"Batch size (auto={bs})")
     p.add_argument("--lr",          type=float, default=1e-4, help="Learning rate")
     p.add_argument("--margin",      type=float, default=0.2,  help="Triplet loss margin")
+    p.add_argument("--mining",      type=str,   default="semihard", choices=["semihard", "hard", "random"], help="Triplet mining strategy")
     p.add_argument("--embedding",   type=int,   default=128,  help="Embedding dimension")
     p.add_argument("--workers",     type=int,   default=4,    help="DataLoader worker count")
     p.add_argument("--no_pretrain", action="store_true",      help="Train ResNet-50 from scratch")
@@ -159,7 +160,7 @@ def main():
     ).to(device)
 
     # ── Loss & Optimiser ──────────────────────────────────────────────────
-    criterion = TripletLoss(margin=args.margin)
+    criterion = TripletLoss(margin=args.margin, mining=args.mining)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-5)
 
     # Cosine annealing: LR decays from lr → 0 over all epochs

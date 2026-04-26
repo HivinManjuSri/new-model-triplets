@@ -9,3 +9,6 @@ torchvision>=0.18.0
 
 # Image handling
 Pillow>=10.0.0
+
+# Plotting for evaluation graphs (ROC, FAR/FRR, distance histograms)
+matplotlib>=3.8.0

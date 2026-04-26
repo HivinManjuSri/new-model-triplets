@@ -169,6 +169,8 @@ python -m venv venv
 source venv/Scripts/activate          # Windows bash
 # OR: venv\Scripts\activate.bat       # Windows cmd
 
+.\venv\Scripts\Activate.ps1
+
 # Install dependencies (CUDA 12.4 build of PyTorch)
 pip install -r requirements.txt
 ```
@@ -240,6 +242,45 @@ Distance   : 0.2538
 Decision   : SAME PERSON
 ```
 
+### Step 5 — Full test-set evaluation (ROC/AUC + FAR/FRR/EER + speed)
+
+```bash
+python evaluate_verification_with_plots.py --checkpoint checkpoints/best_model.pt --batch_size 16
+```
+
+Optional flags:
+
+```bash
+# save plots and JSON report to custom locations
+python evaluate_verification_with_plots.py \
+     --checkpoint checkpoints/best_model.pt \
+     --batch_size 16 \
+     --plot_dir plots \
+     --save_json reports/test_eval_report.json
+```
+
+This script uses the **test split only** (`TripletFaceDataset(split="test")`) and reports:
+
+- Classification metrics at selected threshold:
+     - Accuracy, Precision, Recall, Specificity
+     - Confusion matrix (TN, FP, FN, TP)
+- Verification metrics from threshold sweep:
+     - FAR, FRR, EER, EER threshold
+     - ROC curve and AUC
+- Triplet metric:
+     - Triplet accuracy: `d(A,P) + margin < d(A,N)`
+- Model speed metrics:
+     - Single-image embedding latency (mean / median / p95)
+     - Pair verification latency (mean / median / p95)
+     - Estimated throughput (images/sec)
+
+Saved files:
+
+- `plots/roc_curve.png`
+- `plots/far_frr_curve.png`
+- `plots/distance_histogram.png`
+- `reports/test_eval_report.json` (if `--save_json` is provided)
+
 ---
 
 ## Metrics
@@ -269,6 +310,8 @@ Epoch 30 → loss ≈ 0.05,  active ≈ 15%   (well trained, only hard triplets 
 |---|---|
 | **TAR @ FAR=0.1%** | True Accept Rate at 0.1% False Accept Rate — main face verification metric |
 | **AUC** | Area Under the ROC Curve |
+| **FAR** | False Accept Rate: impostor pairs incorrectly accepted |
+| **FRR** | False Reject Rate: genuine pairs incorrectly rejected |
 | **Equal Error Rate (EER)** | Point where FAR = FRR — lower is better |
 | **Threshold** | L2 distance cutoff used for same/different decision |
 
